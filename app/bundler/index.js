@@ -10,6 +10,7 @@ import MiniCssExtractPlugin, { loader as MiniCSSLoader } from 'mini-css-extract-
 import OptimizeCSSAssetsPlugin from 'optimize-css-assets-webpack-plugin';
 import WebpackCdnPlugin from './webpack_cdn_plugin.js';
 import logger from 'debug';
+import objectKeys from '@stdlib/utils/keys';
 import contains from '@stdlib/assert/contains';
 import isURI from '@stdlib/assert/is-uri';
 import isArray from '@stdlib/assert/is-array';
@@ -314,6 +315,7 @@ function generateIndexJS( lessonContent, components, meta, basePath, filePath ) 
 * @param {string} options.yamlStr - lesson meta data in YAML format
 * @param {boolean} options.minify - boolean indicating whether code should be minified
 * @param {boolean} options.writeStats - boolean indicating whether bundle stats should be written to `stats.json` file
+* @param {Object} options.includes - object with ISLE files to include
 * @param {Function} clbk - callback function
 */
 function writeIndexFile({
@@ -323,12 +325,17 @@ function writeIndexFile({
 	content,
 	outputDir,
 	minify,
-	writeStats
+	writeStats,
+	includes
 }, clbk ) {
 	debug( `Writing index.js file for ${filePath} to ${outputPath}...` );
+
+	const meta = includes.preamble;
+	/*
 	let yamlStr = content.match( /^---([\S\s]*?)---/ )[ 1 ];
 	yamlStr = replace( yamlStr, '\t', '    ' ); // Replace tabs with spaces as YAML may not contain the former...
 	const meta = yaml.load( yamlStr );
+	*/
 	if ( isArray( meta.author ) ) {
 		meta.author = meta.author.join( ', ' );
 	}
@@ -459,8 +466,16 @@ function writeIndexFile({
 		]
 	};
 
+	const keys = objectKeys( includes );
+	for ( let i = 0; i < keys.length; i++ ) {
+		content = content.replace( keys[ i ], includes[ keys[ i ] ] );
+	}
+
 	// Remove YAML preamble...
-	content = content.replace( /^---([\S\s]*?)---/, '' );
+	content = content.replace( /---([\S\s]*?)---/g, '' );
+
+	// Replace HTML comments:
+	content = content.replace( /<!--([\S\s]*)-->/g, '' );
 
 	// Replace Markdown by HTML...
 	content = markdownToHTML( content );

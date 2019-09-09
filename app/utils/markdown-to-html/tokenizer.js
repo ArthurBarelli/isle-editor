@@ -15,18 +15,19 @@ const debug = logger( 'isle:tokenizer' );
 const IN_BASE = 0;
 const IN_EQUATION = 1;
 const IN_DISPLAY_EQUATION = 2;
-const IN_OPENING_TAG = 3;
-const IN_OPENING_TAG_NAME = 4;
-const IN_CLOSING_TAG = 5;
-const IN_STRING_ATTRIBUTE = 6;
-const IN_JSX_ATTRIBUTE = 7;
-const IN_JSX_STRING = 8;
-const IN_JSX_OBJECT = 9;
-const IN_JSX_ARRAY = 10;
-const IN_JSX_EXPRESSION = 11;
-const IN_JSX_OTHER = 12;
-const IN_BETWEEN_TAGS = 13;
-const IN_ANGLE_LINK = 14;
+const IN_HTML_COMMENT = 3;
+const IN_OPENING_TAG = 4;
+const IN_OPENING_TAG_NAME = 5;
+const IN_CLOSING_TAG = 6;
+const IN_STRING_ATTRIBUTE = 7;
+const IN_JSX_ATTRIBUTE = 8;
+const IN_JSX_STRING = 9;
+const IN_JSX_OBJECT = 10;
+const IN_JSX_ARRAY = 11;
+const IN_JSX_EXPRESSION = 12;
+const IN_JSX_OTHER = 13;
+const IN_BETWEEN_TAGS = 14;
+const IN_ANGLE_LINK = 15;
 const RE_ALPHANUMERIC = /[A-Z0-9]/i;
 const RE_HTML_INNER_TAGS = /^(?:p|th|td)$/;
 const RE_HTML_INLINE_TAGS = /^(?:a|abbr|acronym|b|bdo|big|br|button|cite|code|dfn|em|i|img|input|kbd|label|map|object|output|q|samp|script|select|small|span|strong|sub|sup|textarea|time|tt|var)$/;
@@ -144,12 +145,19 @@ class Tokenizer {
 
 	_inBase( char ) {
 		const pos = this.pos;
-		if ( this.addEmptySpans && char === '\n' && this._buffer.charAt( pos+1 ) === '\n' ) {
+		const nextChar = this._buffer.charAt( pos+1 );
+		if ( this.addEmptySpans && char === '\n' && nextChar === '\n' ) {
 			this._current += '\n<span />';
 		}
 		else if (
+			char === '<' && nextChar === '!' && this._buffer.charAt( pos+2 ) === '-' && this._buffer.charAt( pos+3 ) === '-'
+		) {
+			debug( 'IN_BASE -> IN_HTML_COMMENT' );
+			this._state = IN_HTML_COMMENT;
+		}
+		else if (
 			char === '<' &&
-			!isWhitespace( this._buffer.charAt( pos+1 ) ) && // Avoid mistaking smaller than sign in text as tag opening
+			!isWhitespace( nextChar ) && // Avoid mistaking smaller than sign in text as tag opening
 			this._buffer.charAt( pos-1 ) !== '\\' // Allow escaping of left angle brackets
 		) {
 			debug( 'IN_BASE -> IN_OPENING_TAG_NAME' );
@@ -160,7 +168,6 @@ class Tokenizer {
 		else if ( char === '$' ) {
 			this._eqnChar = char;
 			const prevChar = this._buffer.charAt( pos-1 );
-			const nextChar = this._buffer.charAt( pos+1 );
 			if (
 				nextChar === '$' &&
 				prevChar !== '\\'
@@ -179,7 +186,6 @@ class Tokenizer {
 		}
 		else if ( char === '\\' ) {
 			this._eqnChar = char;
-			const nextChar = this._buffer.charAt( pos+1 );
 			if ( nextChar === '[' ) {
 				debug( 'IN_BASE -> IN_DISPLAY_EQUATION' );
 				this._state = IN_DISPLAY_EQUATION;
@@ -203,6 +209,16 @@ class Tokenizer {
 			this._current = char;
 		} else {
 			this._current += char;
+		}
+	}
+
+	_inHTMLComment( char ) {
+		this._current += char;
+		if ( char === '-' && this._buffer.charAt( this.pos+1 ) === '-' && this._buffer.charAt( this.pos+2 ) === '>' ) {
+			debug( 'IN_HTML_COMMENT -> IN_BASE' );
+			this._state = IN_BASE;
+			this.tokens.push( this._current );
+			this._current = '';
 		}
 	}
 
@@ -544,6 +560,9 @@ class Tokenizer {
 				break;
 			case IN_DISPLAY_EQUATION:
 				this._inDisplayEquation( char );
+				break;
+			case IN_HTML_COMMENT:
+				this._inHTMLComment( char );
 				break;
 			case IN_OPENING_TAG_NAME:
 				this._inOpeningTagName( char );

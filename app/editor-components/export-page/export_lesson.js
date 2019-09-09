@@ -90,7 +90,8 @@ class ExportLesson extends Component {
 				content: this.props.content,
 				outputDir,
 				minify,
-				writeStats
+				writeStats,
+				includes: global.includes
 			}, ( err ) => {
 				this.setState({
 					finished: true,

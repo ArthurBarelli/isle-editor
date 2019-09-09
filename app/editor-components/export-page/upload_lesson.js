@@ -236,7 +236,8 @@ class UploadLesson extends Component {
 			basePath: IS_PACKAGED ? process.resourcesPath : '.',
 			content: this.props.content,
 			outputDir: this.state.dirname,
-			minify: this.state.minify
+			minify: this.state.minify,
+			includes: global.includes
 		};
 		bundler( settings, ( error ) => {
 			if ( error ) {
